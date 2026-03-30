@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * Anime Pipeline API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
 export interface ManualDownloadRequest {
@@ -11,4 +11,8 @@ export interface ManualDownloadRequest {
   season: number;
   episode: number;
   sourceUrl: string;
+  /** @nullable */
+  quality?: string | null;
+  /** @nullable */
+  priority?: number | null;
 }

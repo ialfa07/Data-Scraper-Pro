@@ -1,12 +1,14 @@
 import { Router, type IRouter } from "express";
 import { desc, sql, eq } from "drizzle-orm";
-import { db, episodesTable, pipelineLogsTable, insertEpisodeSchema } from "@workspace/db";
+import { db, episodesTable, pipelineLogsTable, pipelineRunsTable } from "@workspace/db";
 import {
   RunPipelineResponse,
   TriggerDownloadBody,
   TriggerDownloadResponse,
   GetPipelineStatusResponse,
   GetPipelineStatsResponse,
+  GetPipelineActivityResponse,
+  GetPipelineActivityQueryParams,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 
@@ -19,7 +21,7 @@ router.get("/pipeline/status", async (_req, res): Promise<void> => {
   res.json(
     GetPipelineStatusResponse.parse({
       running: pipelineRunning,
-      message: pipelineRunning ? "Pipeline is running" : "Pipeline is idle",
+      message: pipelineRunning ? "Pipeline en cours d'exécution" : "Pipeline en veille",
       startedAt: pipelineStartedAt?.toISOString() ?? null,
     })
   );
@@ -30,7 +32,7 @@ router.post("/pipeline/run", async (req, res): Promise<void> => {
     res.json(
       RunPipelineResponse.parse({
         running: true,
-        message: "Pipeline is already running",
+        message: "Pipeline déjà en cours",
         startedAt: pipelineStartedAt?.toISOString() ?? null,
       })
     );
@@ -40,19 +42,30 @@ router.post("/pipeline/run", async (req, res): Promise<void> => {
   pipelineRunning = true;
   pipelineStartedAt = new Date();
 
+  const [run] = await db
+    .insert(pipelineRunsTable)
+    .values({ status: "running", trigger: "manual", episodesFound: 0, episodesDownloaded: 0, episodesFailed: 0 })
+    .returning();
+
   await db.insert(pipelineLogsTable).values({
     level: "info",
-    message: "Pipeline manually triggered via API",
+    message: "Pipeline déclenchée manuellement via l'API",
   });
 
   setTimeout(async () => {
     try {
       await db.insert(pipelineLogsTable).values({
         level: "info",
-        message: "Pipeline run completed (demo mode — connect Python scraper to process real episodes)",
+        message: "Pipeline terminée (mode démo — connectez le scraper Python pour traiter de vrais épisodes)",
       });
+      if (run) {
+        await db
+          .update(pipelineRunsTable)
+          .set({ status: "completed", endedAt: new Date(), durationSeconds: 3 })
+          .where(eq(pipelineRunsTable.id, run.id));
+      }
     } catch (err) {
-      logger.error({ err }, "Failed to log pipeline completion");
+      logger.error({ err }, "Erreur lors du log de fin de pipeline");
     } finally {
       pipelineRunning = false;
       pipelineStartedAt = null;
@@ -62,7 +75,7 @@ router.post("/pipeline/run", async (req, res): Promise<void> => {
   res.json(
     RunPipelineResponse.parse({
       running: true,
-      message: "Pipeline started",
+      message: "Pipeline démarrée",
       startedAt: pipelineStartedAt.toISOString(),
     })
   );
@@ -75,7 +88,7 @@ router.post("/pipeline/download", async (req, res): Promise<void> => {
     return;
   }
 
-  const { animeName, season, episode, sourceUrl } = parsed.data;
+  const { animeName, season, episode, sourceUrl, quality, priority } = parsed.data;
 
   const existing = await db
     .select()
@@ -86,7 +99,7 @@ router.post("/pipeline/download", async (req, res): Promise<void> => {
     res.json(
       TriggerDownloadResponse.parse({
         running: false,
-        message: `Episode already exists with status: ${existing[0]!.status}`,
+        message: `Épisode déjà présent — statut: ${existing[0]!.status}`,
       })
     );
     return;
@@ -98,17 +111,19 @@ router.post("/pipeline/download", async (req, res): Promise<void> => {
     episode,
     sourceUrl,
     status: "pending",
+    quality: quality ?? null,
+    priority: priority ?? 0,
   });
 
   await db.insert(pipelineLogsTable).values({
     level: "info",
-    message: `Manual download queued: ${animeName} S${season.toString().padStart(2, "0")}E${episode.toString().padStart(2, "0")}`,
+    message: `Téléchargement manuel en attente : ${animeName} S${season.toString().padStart(2, "0")}E${episode.toString().padStart(2, "0")}`,
   });
 
   res.json(
     TriggerDownloadResponse.parse({
       running: true,
-      message: `Episode queued: ${animeName} S${season.toString().padStart(2, "0")}E${episode.toString().padStart(2, "0")}`,
+      message: `Épisode en attente : ${animeName} S${season.toString().padStart(2, "0")}E${episode.toString().padStart(2, "0")}`,
     })
   );
 });
@@ -146,6 +161,38 @@ router.get("/pipeline/stats", async (_req, res): Promise<void> => {
       recentActivity,
     })
   );
+});
+
+router.get("/pipeline/activity", async (req, res): Promise<void> => {
+  const params = GetPipelineActivityQueryParams.safeParse(req.query);
+  const days = params.success ? (params.data.days ?? 14) : 14;
+
+  const result = await db.execute(sql`
+    SELECT
+      to_char(date_series.d, 'YYYY-MM-DD') AS date,
+      COUNT(*) FILTER (WHERE e.status = 'downloaded' AND DATE(e.updated_at) = date_series.d) AS downloaded,
+      COUNT(*) FILTER (WHERE e.status = 'sent' AND DATE(e.updated_at) = date_series.d) AS sent,
+      COUNT(*) FILTER (WHERE e.status = 'failed' AND DATE(e.updated_at) = date_series.d) AS failed
+    FROM generate_series(
+      CURRENT_DATE - (${days} - 1) * INTERVAL '1 day',
+      CURRENT_DATE,
+      INTERVAL '1 day'
+    ) AS date_series(d)
+    LEFT JOIN episodes e ON DATE(e.updated_at) = date_series.d
+    GROUP BY date_series.d
+    ORDER BY date_series.d ASC
+  `);
+
+  const activity = (result.rows as Array<{ date: string; downloaded: string; sent: string; failed: string }>).map(
+    (row) => ({
+      date: row.date,
+      downloaded: Number(row.downloaded),
+      sent: Number(row.sent),
+      failed: Number(row.failed),
+    })
+  );
+
+  res.json(GetPipelineActivityResponse.parse(activity));
 });
 
 export default router;

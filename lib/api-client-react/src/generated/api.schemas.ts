@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * Anime Pipeline API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 export interface HealthStatus {
   status: string;
@@ -39,6 +39,9 @@ export interface Episode {
   filePath?: string | null;
   /** @nullable */
   telegramMessageId?: string | null;
+  /** @nullable */
+  quality?: string | null;
+  priority: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -67,11 +70,22 @@ export interface PipelineStats {
   recentActivity: Episode[];
 }
 
+export interface ActivityPoint {
+  date: string;
+  downloaded: number;
+  sent: number;
+  failed: number;
+}
+
 export interface ManualDownloadRequest {
   animeName: string;
   season: number;
   episode: number;
   sourceUrl: string;
+  /** @nullable */
+  quality?: string | null;
+  /** @nullable */
+  priority?: number | null;
 }
 
 export interface AnimeSite {
@@ -128,6 +142,165 @@ export interface PipelineLog {
   createdAt: string;
 }
 
+export type PipelineRunStatus =
+  (typeof PipelineRunStatus)[keyof typeof PipelineRunStatus];
+
+export const PipelineRunStatus = {
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+} as const;
+
+export type PipelineRunTrigger =
+  (typeof PipelineRunTrigger)[keyof typeof PipelineRunTrigger];
+
+export const PipelineRunTrigger = {
+  manual: "manual",
+  scheduler: "scheduler",
+  api: "api",
+} as const;
+
+export interface PipelineRun {
+  id: number;
+  startedAt: string;
+  /** @nullable */
+  endedAt?: string | null;
+  episodesFound: number;
+  episodesDownloaded: number;
+  episodesFailed: number;
+  status: PipelineRunStatus;
+  trigger: PipelineRunTrigger;
+  /** @nullable */
+  durationSeconds?: number | null;
+}
+
+export type SchedulerConfigDefaultQuality =
+  (typeof SchedulerConfigDefaultQuality)[keyof typeof SchedulerConfigDefaultQuality];
+
+export const SchedulerConfigDefaultQuality = {
+  best: "best",
+  "1080p": "1080p",
+  "720p": "720p",
+  "480p": "480p",
+  worst: "worst",
+} as const;
+
+export interface SchedulerConfig {
+  id: number;
+  enabled: boolean;
+  intervalMinutes: number;
+  /** @nullable */
+  lastRunAt?: string | null;
+  /** @nullable */
+  nextRunAt?: string | null;
+  /** @nullable */
+  discordWebhookUrl?: string | null;
+  notifyOnError: boolean;
+  defaultQuality: SchedulerConfigDefaultQuality;
+  useWhitelist: boolean;
+}
+
+/**
+ * @nullable
+ */
+export type UpdateSchedulerRequestDefaultQuality =
+  | (typeof UpdateSchedulerRequestDefaultQuality)[keyof typeof UpdateSchedulerRequestDefaultQuality]
+  | null;
+
+export const UpdateSchedulerRequestDefaultQuality = {
+  best: "best",
+  "1080p": "1080p",
+  "720p": "720p",
+  "480p": "480p",
+  worst: "worst",
+} as const;
+
+export interface UpdateSchedulerRequest {
+  /** @nullable */
+  enabled?: boolean | null;
+  /** @nullable */
+  intervalMinutes?: number | null;
+  /** @nullable */
+  discordWebhookUrl?: string | null;
+  /** @nullable */
+  notifyOnError?: boolean | null;
+  /** @nullable */
+  defaultQuality?: UpdateSchedulerRequestDefaultQuality;
+  /** @nullable */
+  useWhitelist?: boolean | null;
+}
+
+export type WhitelistEntryQualityPreference =
+  (typeof WhitelistEntryQualityPreference)[keyof typeof WhitelistEntryQualityPreference];
+
+export const WhitelistEntryQualityPreference = {
+  best: "best",
+  "1080p": "1080p",
+  "720p": "720p",
+  "480p": "480p",
+  worst: "worst",
+} as const;
+
+export interface WhitelistEntry {
+  id: number;
+  animeName: string;
+  priority: number;
+  qualityPreference: WhitelistEntryQualityPreference;
+  enabled: boolean;
+  createdAt: string;
+}
+
+/**
+ * @nullable
+ */
+export type CreateWhitelistRequestQualityPreference =
+  | (typeof CreateWhitelistRequestQualityPreference)[keyof typeof CreateWhitelistRequestQualityPreference]
+  | null;
+
+export const CreateWhitelistRequestQualityPreference = {
+  best: "best",
+  "1080p": "1080p",
+  "720p": "720p",
+  "480p": "480p",
+  worst: "worst",
+} as const;
+
+export interface CreateWhitelistRequest {
+  animeName: string;
+  /** @nullable */
+  priority?: number | null;
+  /** @nullable */
+  qualityPreference?: CreateWhitelistRequestQualityPreference;
+  /** @nullable */
+  enabled?: boolean | null;
+}
+
+/**
+ * @nullable
+ */
+export type UpdateWhitelistRequestQualityPreference =
+  | (typeof UpdateWhitelistRequestQualityPreference)[keyof typeof UpdateWhitelistRequestQualityPreference]
+  | null;
+
+export const UpdateWhitelistRequestQualityPreference = {
+  best: "best",
+  "1080p": "1080p",
+  "720p": "720p",
+  "480p": "480p",
+  worst: "worst",
+} as const;
+
+export interface UpdateWhitelistRequest {
+  /** @nullable */
+  animeName?: string | null;
+  /** @nullable */
+  priority?: number | null;
+  /** @nullable */
+  qualityPreference?: UpdateWhitelistRequestQualityPreference;
+  /** @nullable */
+  enabled?: boolean | null;
+}
+
 export type ListEpisodesParams = {
   /**
    * @nullable
@@ -137,6 +310,10 @@ export type ListEpisodesParams = {
    * @nullable
    */
   animeName?: string | null;
+  /**
+   * @nullable
+   */
+  search?: string | null;
   /**
    * @nullable
    */
@@ -160,6 +337,13 @@ export const ListEpisodesStatus = {
   failed: "failed",
 } as const;
 
+export type GetPipelineActivityParams = {
+  /**
+   * @nullable
+   */
+  days?: number | null;
+};
+
 export type ListLogsParams = {
   /**
    * @nullable
@@ -181,3 +365,10 @@ export const ListLogsLevel = {
   error: "error",
   success: "success",
 } as const;
+
+export type ListRunsParams = {
+  /**
+   * @nullable
+   */
+  limit?: number | null;
+};

@@ -13,6 +13,8 @@ export const episodesTable = pgTable("episodes", {
   errorMessage: text("error_message"),
   filePath: text("file_path"),
   telegramMessageId: text("telegram_message_id"),
+  quality: text("quality"),
+  priority: integer("priority").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

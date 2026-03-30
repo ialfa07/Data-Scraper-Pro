@@ -5,9 +5,10 @@
  * Anime Pipeline API
  * OpenAPI spec version: 0.2.0
  */
-import type { Episode } from "./episode";
 
-export interface EpisodeListResponse {
-  episodes: Episode[];
-  total: number;
+export interface ActivityPoint {
+  date: string;
+  downloaded: number;
+  sent: number;
+  failed: number;
 }

@@ -17,4 +17,16 @@ class Config:
     CONCURRENT_DOWNLOADS: int = int(os.getenv("CONCURRENT_DOWNLOADS", "2"))
     HEADLESS_BROWSER: bool = os.getenv("HEADLESS_BROWSER", "true").lower() == "true"
 
+    # Discord
+    DISCORD_WEBHOOK_URL: str = os.getenv("DISCORD_WEBHOOK_URL", "")
+
+    # Notifications d'erreur Telegram
+    NOTIFY_ON_ERROR: bool = os.getenv("NOTIFY_ON_ERROR", "true").lower() == "true"
+
+    # Qualité vidéo par défaut
+    DEFAULT_QUALITY: str = os.getenv("DEFAULT_QUALITY", "best")
+
+    # Utiliser la liste blanche
+    USE_WHITELIST: bool = os.getenv("USE_WHITELIST", "false").lower() == "true"
+
 config = Config()

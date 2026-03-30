@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Film, Server, ScrollText, Play, Activity } from "lucide-react";
+import { LayoutDashboard, Film, Server, ScrollText, Play, Activity, Clock, Star, History } from "lucide-react";
 import { useGetPipelineStatus, useRunPipeline } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -9,17 +9,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { toast } = useToast();
   const { data: status } = useGetPipelineStatus({ query: { refetchInterval: 5000 } });
-  
+
   const runMutation = useRunPipeline({
     mutation: {
-      onSuccess: () => toast({ title: "Pipeline démarré avec succès" }),
-      onError: () => toast({ title: "Échec du démarrage de la pipeline", variant: "destructive" })
-    }
+      onSuccess: () => toast({ title: "Pipeline démarrée avec succès" }),
+      onError: () => toast({ title: "Échec du démarrage de la pipeline", variant: "destructive" }),
+    },
   });
 
   const links = [
     { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
     { href: "/episodes", label: "Épisodes", icon: Film },
+    { href: "/whitelist", label: "Liste blanche", icon: Star },
+    { href: "/scheduler", label: "Planificateur", icon: Clock },
+    { href: "/runs", label: "Historique", icon: History },
     { href: "/sites", label: "Sites sources", icon: Server },
     { href: "/logs", label: "Journaux", icon: ScrollText },
   ];
@@ -28,10 +31,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background text-foreground relative overflow-hidden font-sans flex">
       {/* Fond décoratif */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <img 
-          src={`${import.meta.env.BASE_URL}images/cyber-bg.png`} 
-          alt="Fond" 
-          className="w-full h-full object-cover opacity-15 mix-blend-screen" 
+        <img
+          src={`${import.meta.env.BASE_URL}images/cyber-bg.png`}
+          alt="Fond"
+          className="w-full h-full object-cover opacity-15 mix-blend-screen"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background/40 to-background" />
       </div>
@@ -43,13 +46,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Activity className="text-primary w-7 h-7" /> NEXUS
           </h1>
         </div>
-        <nav className="flex-1 p-4 space-y-2 mt-4">
+        <nav className="flex-1 p-4 space-y-1 mt-4 overflow-y-auto custom-scrollbar">
           {links.map(link => {
             const Icon = link.icon;
             const active = location === link.href;
             return (
-              <Link key={link.href} href={link.href} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${active ? 'bg-primary/10 text-primary shadow-[inset_4px_0_0_var(--color-primary)]' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'}`}>
-                <Icon className="w-5 h-5" />
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
+                  active
+                    ? "bg-primary/10 text-primary shadow-[inset_4px_0_0_var(--color-primary)]"
+                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                }`}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
                 <span className="font-medium tracking-wide">{link.label}</span>
               </Link>
             );
@@ -62,17 +73,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="h-20 border-b border-border/50 bg-card/20 backdrop-blur-lg flex items-center justify-between px-8 sticky top-0 z-30">
           <div className="flex items-center gap-4">
             <div className="relative flex h-3 w-3">
-              {status?.running && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>}
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${status?.running ? 'bg-primary shadow-[0_0_12px_var(--color-primary)]' : 'bg-muted-foreground'}`}></span>
+              {status?.running && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              )}
+              <span
+                className={`relative inline-flex rounded-full h-3 w-3 ${
+                  status?.running ? "bg-primary shadow-[0_0_12px_var(--color-primary)]" : "bg-muted-foreground"
+                }`}
+              />
             </div>
             <span className="font-display tracking-widest text-sm font-semibold text-muted-foreground">
-              {status?.running ? 'PIPELINE EN COURS' : 'PIPELINE EN VEILLE'}
+              {status?.running ? "PIPELINE EN COURS" : "PIPELINE EN VEILLE"}
             </span>
           </div>
           <div className="flex items-center gap-4">
             <ManualDownloadModal />
-            <Button 
-              onClick={() => runMutation.mutate()} 
+            <Button
+              onClick={() => runMutation.mutate()}
               disabled={runMutation.isPending || status?.running}
               className="bg-gradient-to-r from-primary to-secondary text-primary-foreground font-bold hover:shadow-[0_0_20px_var(--color-primary)] transition-all duration-300 border-none px-6"
             >
@@ -81,7 +98,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </header>
-        
+
         <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
           {children}
         </div>

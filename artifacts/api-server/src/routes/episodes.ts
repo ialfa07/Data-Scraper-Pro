@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, and, ne } from "drizzle-orm";
+import { eq, desc, sql, and, ne, ilike, or } from "drizzle-orm";
 import { db, episodesTable } from "@workspace/db";
 import {
   GetEpisodeResponse,
@@ -9,9 +9,19 @@ import {
   RetryEpisodeParams,
   RetryEpisodeResponse,
   ListEpisodesQueryParams,
+  ExportEpisodesResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+router.get("/episodes/export", async (_req, res): Promise<void> => {
+  const episodes = await db
+    .select()
+    .from(episodesTable)
+    .orderBy(desc(episodesTable.createdAt));
+
+  res.json(ExportEpisodesResponse.parse(episodes));
+});
 
 router.get("/episodes", async (req, res): Promise<void> => {
   const params = ListEpisodesQueryParams.safeParse(req.query);
@@ -20,11 +30,19 @@ router.get("/episodes", async (req, res): Promise<void> => {
     return;
   }
 
-  const { status, animeName, limit = 50, offset = 0 } = params.data;
+  const { status, animeName, search, limit = 50, offset = 0 } = params.data;
 
   const conditions = [];
   if (status) conditions.push(eq(episodesTable.status, status));
   if (animeName) conditions.push(eq(episodesTable.animeName, animeName));
+  if (search) {
+    conditions.push(
+      or(
+        ilike(episodesTable.animeName, `%${search}%`),
+        ilike(episodesTable.sourceUrl, `%${search}%`)
+      )!
+    );
+  }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -58,7 +76,7 @@ router.get("/episodes/:id", async (req, res): Promise<void> => {
     .where(eq(episodesTable.id, params.data.id));
 
   if (!episode) {
-    res.status(404).json({ error: "Episode not found" });
+    res.status(404).json({ error: "Épisode introuvable" });
     return;
   }
 
@@ -78,7 +96,7 @@ router.delete("/episodes/:id", async (req, res): Promise<void> => {
     .returning();
 
   if (!deleted) {
-    res.status(404).json({ error: "Episode not found" });
+    res.status(404).json({ error: "Épisode introuvable" });
     return;
   }
 
@@ -104,7 +122,7 @@ router.post("/episodes/:id/retry", async (req, res): Promise<void> => {
     .returning();
 
   if (!episode) {
-    res.status(404).json({ error: "Episode not found or already sent" });
+    res.status(404).json({ error: "Épisode introuvable ou déjà envoyé" });
     return;
   }
 

@@ -28,38 +28,34 @@ class Database:
 
     def episode_exists(self, source_url: str) -> bool:
         with self._cursor() as cur:
-            cur.execute(
-                "SELECT id FROM episodes WHERE source_url = %s",
-                (source_url,)
-            )
+            cur.execute("SELECT id FROM episodes WHERE source_url = %s", (source_url,))
             return cur.fetchone() is not None
 
-    def insert_episode(self, anime_name: str, season: int, episode: int, source_url: str) -> Optional[int]:
+    def insert_episode(
+        self, anime_name: str, season: int, episode: int, source_url: str,
+        quality: Optional[str] = None, priority: int = 0
+    ) -> Optional[int]:
         try:
             with self._cursor() as cur:
                 cur.execute(
-                    """INSERT INTO episodes (anime_name, season, episode, source_url, status)
-                       VALUES (%s, %s, %s, %s, 'pending')
+                    """INSERT INTO episodes (anime_name, season, episode, source_url, status, quality, priority)
+                       VALUES (%s, %s, %s, %s, 'pending', %s, %s)
                        ON CONFLICT (source_url) DO NOTHING
                        RETURNING id""",
-                    (anime_name, season, episode, source_url)
+                    (anime_name, season, episode, source_url, quality, priority)
                 )
                 row = cur.fetchone()
                 self._conn.commit()
                 return row["id"] if row else None
         except Exception as e:
             self._conn.rollback()
-            logger.error(f"Failed to insert episode: {e}")
+            logger.error(f"Erreur insertion épisode: {e}")
             return None
 
     def update_episode_status(
-        self,
-        episode_id: int,
-        status: str,
-        video_url: Optional[str] = None,
-        file_path: Optional[str] = None,
-        telegram_message_id: Optional[str] = None,
-        error_message: Optional[str] = None,
+        self, episode_id: int, status: str,
+        video_url: Optional[str] = None, file_path: Optional[str] = None,
+        telegram_message_id: Optional[str] = None, error_message: Optional[str] = None,
     ):
         try:
             with self._cursor() as cur:
@@ -77,12 +73,12 @@ class Database:
                 self._conn.commit()
         except Exception as e:
             self._conn.rollback()
-            logger.error(f"Failed to update episode {episode_id}: {e}")
+            logger.error(f"Erreur mise à jour épisode {episode_id}: {e}")
 
     def get_pending_episodes(self) -> List[Dict[str, Any]]:
         with self._cursor() as cur:
             cur.execute(
-                "SELECT * FROM episodes WHERE status = 'pending' ORDER BY created_at ASC"
+                "SELECT * FROM episodes WHERE status = 'pending' ORDER BY priority DESC, created_at ASC"
             )
             return [dict(r) for r in cur.fetchall()]
 
@@ -102,23 +98,64 @@ class Database:
                 )
                 self._conn.commit()
         except Exception as e:
-            logger.error(f"Failed to write log: {e}")
+            logger.error(f"Erreur écriture log: {e}")
 
     def get_enabled_sites(self) -> List[Dict[str, Any]]:
         with self._cursor() as cur:
-            cur.execute(
-                "SELECT * FROM anime_sites WHERE enabled = true ORDER BY name"
-            )
+            cur.execute("SELECT * FROM anime_sites WHERE enabled = true ORDER BY name")
             return [dict(r) for r in cur.fetchall()]
 
     def update_site_last_scraped(self, site_id: int):
         try:
             with self._cursor() as cur:
+                cur.execute("UPDATE anime_sites SET last_scraped_at = NOW() WHERE id = %s", (site_id,))
+                self._conn.commit()
+        except Exception as e:
+            self._conn.rollback()
+            logger.error(f"Erreur update site: {e}")
+
+    # --- Runs ---
+    def create_run(self, trigger: str = "manual") -> Optional[int]:
+        try:
+            with self._cursor() as cur:
                 cur.execute(
-                    "UPDATE anime_sites SET last_scraped_at = NOW() WHERE id = %s",
-                    (site_id,)
+                    """INSERT INTO pipeline_runs (started_at, status, trigger, episodes_found, episodes_downloaded, episodes_failed)
+                       VALUES (NOW(), 'running', %s, 0, 0, 0) RETURNING id""",
+                    (trigger,)
+                )
+                row = cur.fetchone()
+                self._conn.commit()
+                return row["id"] if row else None
+        except Exception as e:
+            self._conn.rollback()
+            logger.error(f"Erreur création run: {e}")
+            return None
+
+    def finish_run(self, run_id: int, found: int, downloaded: int, failed: int, status: str, duration_seconds: int):
+        try:
+            with self._cursor() as cur:
+                cur.execute(
+                    """UPDATE pipeline_runs SET
+                       ended_at = NOW(), status = %s,
+                       episodes_found = %s, episodes_downloaded = %s, episodes_failed = %s,
+                       duration_seconds = %s
+                       WHERE id = %s""",
+                    (status, found, downloaded, failed, duration_seconds, run_id)
                 )
                 self._conn.commit()
         except Exception as e:
             self._conn.rollback()
-            logger.error(f"Failed to update site last scraped: {e}")
+            logger.error(f"Erreur finalisation run: {e}")
+
+    # --- Scheduler ---
+    def get_scheduler_config(self) -> Optional[Dict[str, Any]]:
+        with self._cursor() as cur:
+            cur.execute("SELECT * FROM scheduler_config ORDER BY id LIMIT 1")
+            row = cur.fetchone()
+            return dict(row) if row else None
+
+    # --- Whitelist ---
+    def get_whitelist(self) -> List[Dict[str, Any]]:
+        with self._cursor() as cur:
+            cur.execute("SELECT * FROM anime_whitelist ORDER BY priority DESC, anime_name")
+            return [dict(r) for r in cur.fetchall()]

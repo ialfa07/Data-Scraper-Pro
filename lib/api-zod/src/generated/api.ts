@@ -3,12 +3,11 @@
  * Do not edit manually.
  * Api
  * Anime Pipeline API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -31,6 +30,7 @@ export const ListEpisodesQueryParams = zod.object({
     ])
     .nullish(),
   animeName: zod.coerce.string().nullish(),
+  search: zod.coerce.string().nullish(),
   limit: zod.coerce.number().nullish(),
   offset: zod.coerce.number().nullish(),
 });
@@ -55,12 +55,42 @@ export const ListEpisodesResponse = zod.object({
       errorMessage: zod.string().nullish(),
       filePath: zod.string().nullish(),
       telegramMessageId: zod.string().nullish(),
+      quality: zod.string().nullish(),
+      priority: zod.number(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
   ),
   total: zod.number(),
 });
+
+/**
+ * @summary Export episodes as JSON for CSV download
+ */
+export const ExportEpisodesResponseItem = zod.object({
+  id: zod.number(),
+  animeName: zod.string(),
+  season: zod.number(),
+  episode: zod.number(),
+  sourceUrl: zod.string(),
+  videoUrl: zod.string().nullish(),
+  status: zod.enum([
+    "pending",
+    "downloading",
+    "downloaded",
+    "sending",
+    "sent",
+    "failed",
+  ]),
+  errorMessage: zod.string().nullish(),
+  filePath: zod.string().nullish(),
+  telegramMessageId: zod.string().nullish(),
+  quality: zod.string().nullish(),
+  priority: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ExportEpisodesResponse = zod.array(ExportEpisodesResponseItem);
 
 /**
  * @summary Get episode by ID
@@ -87,6 +117,8 @@ export const GetEpisodeResponse = zod.object({
   errorMessage: zod.string().nullish(),
   filePath: zod.string().nullish(),
   telegramMessageId: zod.string().nullish(),
+  quality: zod.string().nullish(),
+  priority: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -123,6 +155,8 @@ export const RetryEpisodeResponse = zod.object({
   errorMessage: zod.string().nullish(),
   filePath: zod.string().nullish(),
   telegramMessageId: zod.string().nullish(),
+  quality: zod.string().nullish(),
+  priority: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -144,6 +178,8 @@ export const TriggerDownloadBody = zod.object({
   season: zod.number(),
   episode: zod.number(),
   sourceUrl: zod.string(),
+  quality: zod.string().nullish(),
+  priority: zod.number().nullish(),
 });
 
 export const TriggerDownloadResponse = zod.object({
@@ -192,11 +228,30 @@ export const GetPipelineStatsResponse = zod.object({
       errorMessage: zod.string().nullish(),
       filePath: zod.string().nullish(),
       telegramMessageId: zod.string().nullish(),
+      quality: zod.string().nullish(),
+      priority: zod.number(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date(),
     }),
   ),
 });
+
+/**
+ * @summary Get daily activity data for charts
+ */
+export const GetPipelineActivityQueryParams = zod.object({
+  days: zod.coerce.number().nullish(),
+});
+
+export const GetPipelineActivityResponseItem = zod.object({
+  date: zod.string(),
+  downloaded: zod.number(),
+  sent: zod.number(),
+  failed: zod.number(),
+});
+export const GetPipelineActivityResponse = zod.array(
+  GetPipelineActivityResponseItem,
+);
 
 /**
  * @summary List configured anime sites
@@ -282,3 +337,142 @@ export const ListLogsResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const ListLogsResponse = zod.array(ListLogsResponseItem);
+
+/**
+ * @summary List pipeline run history
+ */
+export const ListRunsQueryParams = zod.object({
+  limit: zod.coerce.number().nullish(),
+});
+
+export const ListRunsResponseItem = zod.object({
+  id: zod.number(),
+  startedAt: zod.coerce.date(),
+  endedAt: zod.coerce.date().nullish(),
+  episodesFound: zod.number(),
+  episodesDownloaded: zod.number(),
+  episodesFailed: zod.number(),
+  status: zod.enum(["running", "completed", "failed"]),
+  trigger: zod.enum(["manual", "scheduler", "api"]),
+  durationSeconds: zod.number().nullish(),
+});
+export const ListRunsResponse = zod.array(ListRunsResponseItem);
+
+/**
+ * @summary Get scheduler configuration
+ */
+export const GetSchedulerResponse = zod.object({
+  id: zod.number(),
+  enabled: zod.boolean(),
+  intervalMinutes: zod.number(),
+  lastRunAt: zod.coerce.date().nullish(),
+  nextRunAt: zod.coerce.date().nullish(),
+  discordWebhookUrl: zod.string().nullish(),
+  notifyOnError: zod.boolean(),
+  defaultQuality: zod.enum(["best", "1080p", "720p", "480p", "worst"]),
+  useWhitelist: zod.boolean(),
+});
+
+/**
+ * @summary Update scheduler configuration
+ */
+export const UpdateSchedulerBody = zod.object({
+  enabled: zod.boolean().nullish(),
+  intervalMinutes: zod.number().nullish(),
+  discordWebhookUrl: zod.string().nullish(),
+  notifyOnError: zod.boolean().nullish(),
+  defaultQuality: zod
+    .union([
+      zod.literal("best"),
+      zod.literal("1080p"),
+      zod.literal("720p"),
+      zod.literal("480p"),
+      zod.literal("worst"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  useWhitelist: zod.boolean().nullish(),
+});
+
+export const UpdateSchedulerResponse = zod.object({
+  id: zod.number(),
+  enabled: zod.boolean(),
+  intervalMinutes: zod.number(),
+  lastRunAt: zod.coerce.date().nullish(),
+  nextRunAt: zod.coerce.date().nullish(),
+  discordWebhookUrl: zod.string().nullish(),
+  notifyOnError: zod.boolean(),
+  defaultQuality: zod.enum(["best", "1080p", "720p", "480p", "worst"]),
+  useWhitelist: zod.boolean(),
+});
+
+/**
+ * @summary List anime whitelist
+ */
+export const ListWhitelistResponseItem = zod.object({
+  id: zod.number(),
+  animeName: zod.string(),
+  priority: zod.number(),
+  qualityPreference: zod.enum(["best", "1080p", "720p", "480p", "worst"]),
+  enabled: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListWhitelistResponse = zod.array(ListWhitelistResponseItem);
+
+/**
+ * @summary Add anime to whitelist
+ */
+export const CreateWhitelistEntryBody = zod.object({
+  animeName: zod.string(),
+  priority: zod.number().nullish(),
+  qualityPreference: zod
+    .union([
+      zod.literal("best"),
+      zod.literal("1080p"),
+      zod.literal("720p"),
+      zod.literal("480p"),
+      zod.literal("worst"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  enabled: zod.boolean().nullish(),
+});
+
+/**
+ * @summary Update whitelist entry
+ */
+export const UpdateWhitelistEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateWhitelistEntryBody = zod.object({
+  animeName: zod.string().nullish(),
+  priority: zod.number().nullish(),
+  qualityPreference: zod
+    .union([
+      zod.literal("best"),
+      zod.literal("1080p"),
+      zod.literal("720p"),
+      zod.literal("480p"),
+      zod.literal("worst"),
+      zod.literal(null),
+    ])
+    .nullish(),
+  enabled: zod.boolean().nullish(),
+});
+
+export const UpdateWhitelistEntryResponse = zod.object({
+  id: zod.number(),
+  animeName: zod.string(),
+  priority: zod.number(),
+  qualityPreference: zod.enum(["best", "1080p", "720p", "480p", "worst"]),
+  enabled: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Remove from whitelist
+ */
+export const DeleteWhitelistEntryParams = zod.object({
+  id: zod.coerce.number(),
+});

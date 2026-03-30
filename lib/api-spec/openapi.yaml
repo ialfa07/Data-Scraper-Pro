@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Api
-  version: 0.1.0
+  version: 0.2.0
   description: Anime Pipeline API
 servers:
   - url: /api
@@ -17,13 +17,18 @@ tags:
     description: Anime site configuration
   - name: logs
     description: Pipeline logs
+  - name: runs
+    description: Pipeline run history
+  - name: scheduler
+    description: Scheduler configuration
+  - name: whitelist
+    description: Anime whitelist management
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -47,6 +52,10 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
         - name: limit
           in: query
           schema:
@@ -62,6 +71,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EpisodeListResponse"
+
+  /episodes/export:
+    get:
+      operationId: exportEpisodes
+      tags: [episodes]
+      summary: Export episodes as JSON for CSV download
+      responses:
+        "200":
+          description: All episodes for export
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Episode"
 
   /episodes/{id}:
     get:
@@ -196,6 +220,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/PipelineStats"
 
+  /pipeline/activity:
+    get:
+      operationId: getPipelineActivity
+      tags: [pipeline]
+      summary: Get daily activity data for charts
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Activity data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityPoint"
+
   /sites:
     get:
       operationId: listSites
@@ -309,6 +353,144 @@ paths:
                 items:
                   $ref: "#/components/schemas/PipelineLog"
 
+  /runs:
+    get:
+      operationId: listRuns
+      tags: [runs]
+      summary: List pipeline run history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Run history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PipelineRun"
+
+  /scheduler:
+    get:
+      operationId: getScheduler
+      tags: [scheduler]
+      summary: Get scheduler configuration
+      responses:
+        "200":
+          description: Scheduler config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchedulerConfig"
+    patch:
+      operationId: updateScheduler
+      tags: [scheduler]
+      summary: Update scheduler configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSchedulerRequest"
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchedulerConfig"
+
+  /whitelist:
+    get:
+      operationId: listWhitelist
+      tags: [whitelist]
+      summary: List anime whitelist
+      responses:
+        "200":
+          description: Whitelist entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WhitelistEntry"
+    post:
+      operationId: createWhitelistEntry
+      tags: [whitelist]
+      summary: Add anime to whitelist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWhitelistRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhitelistEntry"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /whitelist/{id}:
+    patch:
+      operationId: updateWhitelistEntry
+      tags: [whitelist]
+      summary: Update whitelist entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWhitelistRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhitelistEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteWhitelistEntry
+      tags: [whitelist]
+      summary: Remove from whitelist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -316,16 +498,14 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
+      required: [error]
 
     Episode:
       type: object
@@ -351,21 +531,17 @@ components:
           type: ["string", "null"]
         telegramMessageId:
           type: ["string", "null"]
+        quality:
+          type: ["string", "null"]
+        priority:
+          type: integer
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required:
-        - id
-        - animeName
-        - season
-        - episode
-        - sourceUrl
-        - status
-        - createdAt
-        - updatedAt
+      required: [id, animeName, season, episode, sourceUrl, status, priority, createdAt, updatedAt]
 
     EpisodeListResponse:
       type: object
@@ -376,9 +552,7 @@ components:
             $ref: "#/components/schemas/Episode"
         total:
           type: integer
-      required:
-        - episodes
-        - total
+      required: [episodes, total]
 
     PipelineStatus:
       type: object
@@ -390,9 +564,7 @@ components:
         startedAt:
           type: ["string", "null"]
           format: date-time
-      required:
-        - running
-        - message
+      required: [running, message]
 
     PipelineStats:
       type: object
@@ -417,16 +589,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Episode"
-      required:
-        - total
-        - pending
-        - downloading
-        - downloaded
-        - sending
-        - sent
-        - failed
-        - totalAnimes
-        - recentActivity
+      required: [total, pending, downloading, downloaded, sending, sent, failed, totalAnimes, recentActivity]
+
+    ActivityPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        downloaded:
+          type: integer
+        sent:
+          type: integer
+        failed:
+          type: integer
+      required: [date, downloaded, sent, failed]
 
     ManualDownloadRequest:
       type: object
@@ -439,11 +615,11 @@ components:
           type: integer
         sourceUrl:
           type: string
-      required:
-        - animeName
-        - season
-        - episode
-        - sourceUrl
+        quality:
+          type: ["string", "null"]
+        priority:
+          type: ["integer", "null"]
+      required: [animeName, season, episode, sourceUrl]
 
     AnimeSite:
       type: object
@@ -466,14 +642,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required:
-        - id
-        - name
-        - baseUrl
-        - enabled
-        - requiresJs
-        - scraperType
-        - createdAt
+      required: [id, name, baseUrl, enabled, requiresJs, scraperType, createdAt]
 
     CreateAnimeSiteRequest:
       type: object
@@ -488,10 +657,7 @@ components:
           type: boolean
         scraperType:
           type: string
-      required:
-        - name
-        - baseUrl
-        - scraperType
+      required: [name, baseUrl, scraperType]
 
     UpdateAnimeSiteRequest:
       type: object
@@ -524,8 +690,120 @@ components:
         createdAt:
           type: string
           format: date-time
-      required:
-        - id
-        - level
-        - message
-        - createdAt
+      required: [id, level, message, createdAt]
+
+    PipelineRun:
+      type: object
+      properties:
+        id:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: ["string", "null"]
+          format: date-time
+        episodesFound:
+          type: integer
+        episodesDownloaded:
+          type: integer
+        episodesFailed:
+          type: integer
+        status:
+          type: string
+          enum: [running, completed, failed]
+        trigger:
+          type: string
+          enum: [manual, scheduler, api]
+        durationSeconds:
+          type: ["integer", "null"]
+      required: [id, startedAt, episodesFound, episodesDownloaded, episodesFailed, status, trigger]
+
+    SchedulerConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        enabled:
+          type: boolean
+        intervalMinutes:
+          type: integer
+        lastRunAt:
+          type: ["string", "null"]
+          format: date-time
+        nextRunAt:
+          type: ["string", "null"]
+          format: date-time
+        discordWebhookUrl:
+          type: ["string", "null"]
+        notifyOnError:
+          type: boolean
+        defaultQuality:
+          type: string
+          enum: [best, 1080p, 720p, 480p, worst]
+        useWhitelist:
+          type: boolean
+      required: [id, enabled, intervalMinutes, notifyOnError, defaultQuality, useWhitelist]
+
+    UpdateSchedulerRequest:
+      type: object
+      properties:
+        enabled:
+          type: ["boolean", "null"]
+        intervalMinutes:
+          type: ["integer", "null"]
+        discordWebhookUrl:
+          type: ["string", "null"]
+        notifyOnError:
+          type: ["boolean", "null"]
+        defaultQuality:
+          type: ["string", "null"]
+          enum: [best, 1080p, 720p, 480p, worst, null]
+        useWhitelist:
+          type: ["boolean", "null"]
+
+    WhitelistEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        animeName:
+          type: string
+        priority:
+          type: integer
+        qualityPreference:
+          type: string
+          enum: [best, 1080p, 720p, 480p, worst]
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, animeName, priority, qualityPreference, enabled, createdAt]
+
+    CreateWhitelistRequest:
+      type: object
+      properties:
+        animeName:
+          type: string
+        priority:
+          type: ["integer", "null"]
+        qualityPreference:
+          type: ["string", "null"]
+          enum: [best, 1080p, 720p, 480p, worst, null]
+        enabled:
+          type: ["boolean", "null"]
+      required: [animeName]
+
+    UpdateWhitelistRequest:
+      type: object
+      properties:
+        animeName:
+          type: ["string", "null"]
+        priority:
+          type: ["integer", "null"]
+        qualityPreference:
+          type: ["string", "null"]
+          enum: [best, 1080p, 720p, 480p, worst, null]
+        enabled:
+          type: ["boolean", "null"]

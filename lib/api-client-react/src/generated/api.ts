@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * Anime Pipeline API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
@@ -17,19 +17,28 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActivityPoint,
   AnimeSite,
   CreateAnimeSiteRequest,
+  CreateWhitelistRequest,
   Episode,
   EpisodeListResponse,
   ErrorResponse,
+  GetPipelineActivityParams,
   HealthStatus,
   ListEpisodesParams,
   ListLogsParams,
+  ListRunsParams,
   ManualDownloadRequest,
   PipelineLog,
+  PipelineRun,
   PipelineStats,
   PipelineStatus,
+  SchedulerConfig,
   UpdateAnimeSiteRequest,
+  UpdateSchedulerRequest,
+  UpdateWhitelistRequest,
+  WhitelistEntry,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -42,7 +51,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -203,6 +211,81 @@ export function useListEpisodes<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListEpisodesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Export episodes as JSON for CSV download
+ */
+export const getExportEpisodesUrl = () => {
+  return `/api/episodes/export`;
+};
+
+export const exportEpisodes = async (
+  options?: RequestInit,
+): Promise<Episode[]> => {
+  return customFetch<Episode[]>(getExportEpisodesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportEpisodesQueryKey = () => {
+  return [`/api/episodes/export`] as const;
+};
+
+export const getExportEpisodesQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportEpisodes>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof exportEpisodes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getExportEpisodesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof exportEpisodes>>> = ({
+    signal,
+  }) => exportEpisodes({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportEpisodes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportEpisodesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportEpisodes>>
+>;
+export type ExportEpisodesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Export episodes as JSON for CSV download
+ */
+
+export function useExportEpisodes<
+  TData = Awaited<ReturnType<typeof exportEpisodes>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof exportEpisodes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportEpisodesQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -784,6 +867,106 @@ export function useGetPipelineStats<
 }
 
 /**
+ * @summary Get daily activity data for charts
+ */
+export const getGetPipelineActivityUrl = (
+  params?: GetPipelineActivityParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/pipeline/activity?${stringifiedParams}`
+    : `/api/pipeline/activity`;
+};
+
+export const getPipelineActivity = async (
+  params?: GetPipelineActivityParams,
+  options?: RequestInit,
+): Promise<ActivityPoint[]> => {
+  return customFetch<ActivityPoint[]>(getGetPipelineActivityUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPipelineActivityQueryKey = (
+  params?: GetPipelineActivityParams,
+) => {
+  return [`/api/pipeline/activity`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetPipelineActivityQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPipelineActivity>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetPipelineActivityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPipelineActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPipelineActivityQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPipelineActivity>>
+  > = ({ signal }) =>
+    getPipelineActivity(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPipelineActivity>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPipelineActivityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPipelineActivity>>
+>;
+export type GetPipelineActivityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get daily activity data for charts
+ */
+
+export function useGetPipelineActivity<
+  TData = Awaited<ReturnType<typeof getPipelineActivity>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetPipelineActivityParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPipelineActivity>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPipelineActivityQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary List configured anime sites
  */
 export const getListSitesUrl = () => {
@@ -1200,3 +1383,590 @@ export function useListLogs<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List pipeline run history
+ */
+export const getListRunsUrl = (params?: ListRunsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/runs?${stringifiedParams}`
+    : `/api/runs`;
+};
+
+export const listRuns = async (
+  params?: ListRunsParams,
+  options?: RequestInit,
+): Promise<PipelineRun[]> => {
+  return customFetch<PipelineRun[]>(getListRunsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListRunsQueryKey = (params?: ListRunsParams) => {
+  return [`/api/runs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListRunsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRuns>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListRunsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRuns>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListRunsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listRuns>>> = ({
+    signal,
+  }) => listRuns(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRuns>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRunsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRuns>>
+>;
+export type ListRunsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List pipeline run history
+ */
+
+export function useListRuns<
+  TData = Awaited<ReturnType<typeof listRuns>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListRunsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRuns>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRunsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get scheduler configuration
+ */
+export const getGetSchedulerUrl = () => {
+  return `/api/scheduler`;
+};
+
+export const getScheduler = async (
+  options?: RequestInit,
+): Promise<SchedulerConfig> => {
+  return customFetch<SchedulerConfig>(getGetSchedulerUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSchedulerQueryKey = () => {
+  return [`/api/scheduler`] as const;
+};
+
+export const getGetSchedulerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getScheduler>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getScheduler>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSchedulerQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getScheduler>>> = ({
+    signal,
+  }) => getScheduler({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getScheduler>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSchedulerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getScheduler>>
+>;
+export type GetSchedulerQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get scheduler configuration
+ */
+
+export function useGetScheduler<
+  TData = Awaited<ReturnType<typeof getScheduler>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getScheduler>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSchedulerQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update scheduler configuration
+ */
+export const getUpdateSchedulerUrl = () => {
+  return `/api/scheduler`;
+};
+
+export const updateScheduler = async (
+  updateSchedulerRequest: UpdateSchedulerRequest,
+  options?: RequestInit,
+): Promise<SchedulerConfig> => {
+  return customFetch<SchedulerConfig>(getUpdateSchedulerUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSchedulerRequest),
+  });
+};
+
+export const getUpdateSchedulerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateScheduler>>,
+    TError,
+    { data: BodyType<UpdateSchedulerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateScheduler>>,
+  TError,
+  { data: BodyType<UpdateSchedulerRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateScheduler"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateScheduler>>,
+    { data: BodyType<UpdateSchedulerRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateScheduler(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSchedulerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateScheduler>>
+>;
+export type UpdateSchedulerMutationBody = BodyType<UpdateSchedulerRequest>;
+export type UpdateSchedulerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update scheduler configuration
+ */
+export const useUpdateScheduler = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateScheduler>>,
+    TError,
+    { data: BodyType<UpdateSchedulerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateScheduler>>,
+  TError,
+  { data: BodyType<UpdateSchedulerRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateSchedulerMutationOptions(options));
+};
+
+/**
+ * @summary List anime whitelist
+ */
+export const getListWhitelistUrl = () => {
+  return `/api/whitelist`;
+};
+
+export const listWhitelist = async (
+  options?: RequestInit,
+): Promise<WhitelistEntry[]> => {
+  return customFetch<WhitelistEntry[]>(getListWhitelistUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListWhitelistQueryKey = () => {
+  return [`/api/whitelist`] as const;
+};
+
+export const getListWhitelistQueryOptions = <
+  TData = Awaited<ReturnType<typeof listWhitelist>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listWhitelist>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListWhitelistQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listWhitelist>>> = ({
+    signal,
+  }) => listWhitelist({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listWhitelist>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListWhitelistQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listWhitelist>>
+>;
+export type ListWhitelistQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List anime whitelist
+ */
+
+export function useListWhitelist<
+  TData = Awaited<ReturnType<typeof listWhitelist>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listWhitelist>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListWhitelistQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add anime to whitelist
+ */
+export const getCreateWhitelistEntryUrl = () => {
+  return `/api/whitelist`;
+};
+
+export const createWhitelistEntry = async (
+  createWhitelistRequest: CreateWhitelistRequest,
+  options?: RequestInit,
+): Promise<WhitelistEntry> => {
+  return customFetch<WhitelistEntry>(getCreateWhitelistEntryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createWhitelistRequest),
+  });
+};
+
+export const getCreateWhitelistEntryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWhitelistEntry>>,
+    TError,
+    { data: BodyType<CreateWhitelistRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createWhitelistEntry>>,
+  TError,
+  { data: BodyType<CreateWhitelistRequest> },
+  TContext
+> => {
+  const mutationKey = ["createWhitelistEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createWhitelistEntry>>,
+    { data: BodyType<CreateWhitelistRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createWhitelistEntry(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateWhitelistEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createWhitelistEntry>>
+>;
+export type CreateWhitelistEntryMutationBody = BodyType<CreateWhitelistRequest>;
+export type CreateWhitelistEntryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Add anime to whitelist
+ */
+export const useCreateWhitelistEntry = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createWhitelistEntry>>,
+    TError,
+    { data: BodyType<CreateWhitelistRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createWhitelistEntry>>,
+  TError,
+  { data: BodyType<CreateWhitelistRequest> },
+  TContext
+> => {
+  return useMutation(getCreateWhitelistEntryMutationOptions(options));
+};
+
+/**
+ * @summary Update whitelist entry
+ */
+export const getUpdateWhitelistEntryUrl = (id: number) => {
+  return `/api/whitelist/${id}`;
+};
+
+export const updateWhitelistEntry = async (
+  id: number,
+  updateWhitelistRequest: UpdateWhitelistRequest,
+  options?: RequestInit,
+): Promise<WhitelistEntry> => {
+  return customFetch<WhitelistEntry>(getUpdateWhitelistEntryUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateWhitelistRequest),
+  });
+};
+
+export const getUpdateWhitelistEntryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateWhitelistEntry>>,
+    TError,
+    { id: number; data: BodyType<UpdateWhitelistRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateWhitelistEntry>>,
+  TError,
+  { id: number; data: BodyType<UpdateWhitelistRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateWhitelistEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateWhitelistEntry>>,
+    { id: number; data: BodyType<UpdateWhitelistRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateWhitelistEntry(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateWhitelistEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateWhitelistEntry>>
+>;
+export type UpdateWhitelistEntryMutationBody = BodyType<UpdateWhitelistRequest>;
+export type UpdateWhitelistEntryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update whitelist entry
+ */
+export const useUpdateWhitelistEntry = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateWhitelistEntry>>,
+    TError,
+    { id: number; data: BodyType<UpdateWhitelistRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateWhitelistEntry>>,
+  TError,
+  { id: number; data: BodyType<UpdateWhitelistRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateWhitelistEntryMutationOptions(options));
+};
+
+/**
+ * @summary Remove from whitelist
+ */
+export const getDeleteWhitelistEntryUrl = (id: number) => {
+  return `/api/whitelist/${id}`;
+};
+
+export const deleteWhitelistEntry = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteWhitelistEntryUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteWhitelistEntryMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWhitelistEntry>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteWhitelistEntry>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteWhitelistEntry"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteWhitelistEntry>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteWhitelistEntry(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWhitelistEntryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteWhitelistEntry>>
+>;
+
+export type DeleteWhitelistEntryMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Remove from whitelist
+ */
+export const useDeleteWhitelistEntry = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteWhitelistEntry>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteWhitelistEntry>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteWhitelistEntryMutationOptions(options));
+};
