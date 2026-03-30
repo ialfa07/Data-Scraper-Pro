@@ -1,0 +1,15 @@
+packages:
+  "framer-motion": "For page transitions and interactive animations"
+  "date-fns": "For date formatting"
+  "recharts": "For dashboard charts and stats visualization"
+  "@hookform/resolvers": "For Zod form validation"
+  "react-hook-form": "For form state management"
+
+images:
+  - path: "artifacts/anime-dashboard/public/images/cyber-bg.png"
+    description: "Dark glowing cyber tech abstract background with subtle cyan and purple neon grid lines, anime mecha aesthetic, empty center, very dark."
+    aspect_ratio: "16:9"
+
+notes:
+  - "App connects to local Replit backend via proxy"
+  - "Using generated TanStack Query hooks from @workspace/api-client-react"

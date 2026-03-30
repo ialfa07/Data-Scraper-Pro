@@ -1,15 +1,22 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Anime Pipeline API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: episodes
+    description: Episode management
+  - name: pipeline
+    description: Pipeline control
+  - name: sites
+    description: Anime site configuration
+  - name: logs
+    description: Pipeline logs
 paths:
   /healthz:
     get:
@@ -24,6 +31,284 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /episodes:
+    get:
+      operationId: listEpisodes
+      tags: [episodes]
+      summary: List all episodes
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+            enum: [pending, downloading, downloaded, sending, sent, failed, null]
+        - name: animeName
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: offset
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of episodes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpisodeListResponse"
+
+  /episodes/{id}:
+    get:
+      operationId: getEpisode
+      tags: [episodes]
+      summary: Get episode by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Episode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteEpisode
+      tags: [episodes]
+      summary: Delete episode record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /episodes/{id}/retry:
+    post:
+      operationId: retryEpisode
+      tags: [episodes]
+      summary: Retry failed episode
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Queued for retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Episode"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pipeline/run:
+    post:
+      operationId: runPipeline
+      tags: [pipeline]
+      summary: Trigger full pipeline run
+      responses:
+        "200":
+          description: Pipeline started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStatus"
+
+  /pipeline/download:
+    post:
+      operationId: triggerDownload
+      tags: [pipeline]
+      summary: Manually trigger download for a specific episode URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManualDownloadRequest"
+      responses:
+        "200":
+          description: Download started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStatus"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pipeline/status:
+    get:
+      operationId: getPipelineStatus
+      tags: [pipeline]
+      summary: Get current pipeline status
+      responses:
+        "200":
+          description: Pipeline status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStatus"
+
+  /pipeline/stats:
+    get:
+      operationId: getPipelineStats
+      tags: [pipeline]
+      summary: Get pipeline statistics
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStats"
+
+  /sites:
+    get:
+      operationId: listSites
+      tags: [sites]
+      summary: List configured anime sites
+      responses:
+        "200":
+          description: List of sites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AnimeSite"
+    post:
+      operationId: createSite
+      tags: [sites]
+      summary: Add a new anime site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnimeSiteRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnimeSite"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sites/{id}:
+    patch:
+      operationId: updateSite
+      tags: [sites]
+      summary: Update site configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnimeSiteRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnimeSite"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteSite
+      tags: [sites]
+      summary: Remove a site
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /logs:
+    get:
+      operationId: listLogs
+      tags: [logs]
+      summary: Get pipeline logs
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: ["string", "null"]
+            enum: [info, warning, error, success, null]
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: List of logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PipelineLog"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +319,213 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Episode:
+      type: object
+      properties:
+        id:
+          type: integer
+        animeName:
+          type: string
+        season:
+          type: integer
+        episode:
+          type: integer
+        sourceUrl:
+          type: string
+        videoUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, downloading, downloaded, sending, sent, failed]
+        errorMessage:
+          type: ["string", "null"]
+        filePath:
+          type: ["string", "null"]
+        telegramMessageId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - animeName
+        - season
+        - episode
+        - sourceUrl
+        - status
+        - createdAt
+        - updatedAt
+
+    EpisodeListResponse:
+      type: object
+      properties:
+        episodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Episode"
+        total:
+          type: integer
+      required:
+        - episodes
+        - total
+
+    PipelineStatus:
+      type: object
+      properties:
+        running:
+          type: boolean
+        message:
+          type: string
+        startedAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - running
+        - message
+
+    PipelineStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        downloading:
+          type: integer
+        downloaded:
+          type: integer
+        sending:
+          type: integer
+        sent:
+          type: integer
+        failed:
+          type: integer
+        totalAnimes:
+          type: integer
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/Episode"
+      required:
+        - total
+        - pending
+        - downloading
+        - downloaded
+        - sending
+        - sent
+        - failed
+        - totalAnimes
+        - recentActivity
+
+    ManualDownloadRequest:
+      type: object
+      properties:
+        animeName:
+          type: string
+        season:
+          type: integer
+        episode:
+          type: integer
+        sourceUrl:
+          type: string
+      required:
+        - animeName
+        - season
+        - episode
+        - sourceUrl
+
+    AnimeSite:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        baseUrl:
+          type: string
+        enabled:
+          type: boolean
+        requiresJs:
+          type: boolean
+        scraperType:
+          type: string
+        lastScrapedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - baseUrl
+        - enabled
+        - requiresJs
+        - scraperType
+        - createdAt
+
+    CreateAnimeSiteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        baseUrl:
+          type: string
+        enabled:
+          type: boolean
+        requiresJs:
+          type: boolean
+        scraperType:
+          type: string
+      required:
+        - name
+        - baseUrl
+        - scraperType
+
+    UpdateAnimeSiteRequest:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        baseUrl:
+          type: ["string", "null"]
+        enabled:
+          type: ["boolean", "null"]
+        requiresJs:
+          type: ["boolean", "null"]
+        scraperType:
+          type: ["string", "null"]
+
+    PipelineLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        level:
+          type: string
+          enum: [info, warning, error, success]
+        message:
+          type: string
+        details:
+          type: ["string", "null"]
+        episodeId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - level
+        - message
+        - createdAt

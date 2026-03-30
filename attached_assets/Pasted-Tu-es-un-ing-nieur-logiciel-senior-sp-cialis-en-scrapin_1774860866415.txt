@@ -1,0 +1,177 @@
+Tu es un ingénieur logiciel senior spécialisé en scraping, automatisation cloud et systèmes distribués.
+
+Je veux que tu conçoives un système COMPLET, modulaire et prêt pour production, permettant de scraper, télécharger et distribuer automatiquement des épisodes d’anime depuis plusieurs sites web.
+
+🎯 OBJECTIF GLOBAL :
+Créer une pipeline automatisée qui :
+
+1. Scrape plusieurs sites d’anime
+2. Détecte les nouveaux épisodes
+3. Télécharge les vidéos automatiquement
+4. Envoie les fichiers sur Telegram
+5. Supprime les fichiers du stockage cloud après envoi
+6. Évite les doublons grâce à une base de données
+
+---
+
+🧱 ARCHITECTURE ATTENDUE :
+
+1. CRAWLER (scraper multi-sites)
+
+* Support de plusieurs sites (structure adaptable)
+* Extraction :
+
+  * Nom de l’anime
+  * Saison
+  * Numéro d’épisode
+  * URL de la page épisode
+* Détection des nouveaux épisodes uniquement
+
+---
+
+2. PARSER VIDÉO
+
+* Extraire les sources vidéo :
+
+  * mp4 direct
+  * m3u8 (HLS)
+* Support des pages dynamiques (Playwright requis si JS)
+* Gestion des lecteurs embed
+
+---
+
+3. DOWNLOADER
+
+* Télécharger :
+
+  * mp4 direct
+  * ou reconstituer m3u8 via ffmpeg
+* Renommage automatique :
+  Anime_Name_S01_E01.mp4
+* Gestion des erreurs + retry
+
+---
+
+4. BASE DE DONNÉES
+
+* SQLite ou PostgreSQL
+* Table :
+
+  * anime_name
+  * season
+  * episode
+  * source_url
+  * status (downloaded, sent)
+* Empêcher le re-téléchargement
+
+---
+
+5. STOCKAGE TEMPORAIRE
+
+* Google Cloud Storage bucket
+* Upload automatique après téléchargement
+
+---
+
+6. ENVOI TELEGRAM
+
+* Utiliser Telegram Bot API
+* Envoyer le fichier directement (pas lien)
+* Gestion des fichiers volumineux
+* Ajouter :
+
+  * titre
+  * description
+  * épisode info
+
+---
+
+7. NETTOYAGE AUTOMATIQUE
+
+* Après envoi réussi :
+
+  * supprimer du bucket Google Cloud
+  * marquer comme "sent" en base
+
+---
+
+8. ORCHESTRATION
+
+* Script principal :
+  pipeline.py
+* Flow :
+  crawler → parser → downloader → upload → telegram → delete
+
+---
+
+⚙️ TECH STACK :
+
+* Python 3.10+
+* Playwright (scraping JS)
+* BeautifulSoup
+* requests/httpx
+* ffmpeg
+* google-cloud-storage
+* python-telegram-bot
+* SQLAlchemy
+
+---
+
+📁 STRUCTURE DU PROJET :
+
+* /crawler
+* /parser
+* /downloader
+* /database
+* /telegram
+* /cloud
+* main.py
+* pipeline.py
+* config.py
+* requirements.txt
+* Dockerfile
+* README.md
+
+---
+
+🚀 DÉPLOIEMENT :
+
+Fournir :
+
+1. Instructions GitHub
+2. Docker build
+3. Déploiement sur Google Cloud Run ou VM
+4. Planification automatique (cron ou scheduler)
+
+---
+
+🧠 BONUS INTELLIGENCE :
+
+* Détection automatique des nouveaux épisodes
+* Système de logs clair
+* Gestion des erreurs avancée
+* Possibilité d’ajouter facilement de nouveaux sites
+* Configuration via fichier .env
+
+---
+
+⚠️ IMPORTANT :
+
+* Code entièrement fonctionnel
+* Pas de pseudo-code
+* Code modulaire et propre
+* Chaque module séparé clairement
+
+---
+
+🎁 OPTION :
+
+Ajouter une API interne (FastAPI) pour :
+
+* lancer un téléchargement manuel
+* voir les épisodes déjà traités
+* monitorer le système
+
+---
+
+Génère-moi tout le projet complet prêt à être utilisé.

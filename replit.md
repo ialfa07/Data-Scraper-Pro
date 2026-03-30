@@ -3,6 +3,7 @@
 ## Overview
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+This project is an **Anime Pipeline System** — automated scraping, downloading, and Telegram distribution of anime episodes, with a full monitoring dashboard.
 
 ## Stack
 
@@ -15,82 +16,81 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Frontend**: React + Vite (anime-dashboard artifact)
+- **Python pipeline**: Python 3.11+ (in `/pipeline/`)
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+├── artifacts/
+│   ├── api-server/         # Express API server
+│   └── anime-dashboard/    # React dashboard (monitoring UI)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+├── pipeline/               # Python pipeline system
+│   ├── crawler/            # Multi-site anime crawlers
+│   ├── parser/             # Video URL extractor (mp4/m3u8)
+│   ├── downloader/         # Video downloader (ffmpeg + direct)
+│   ├── cloud/              # Google Cloud Storage integration
+│   ├── telegram/           # Telegram Bot API sender
+│   ├── database/           # PostgreSQL connection (psycopg2)
+│   ├── pipeline.py         # Main orchestrator
+│   ├── main.py             # CLI entry point
+│   ├── config.py           # Environment config
+│   └── requirements.txt    # Python dependencies
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+└── package.json
 ```
 
-## TypeScript & Composite Projects
+## Database Schema
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+- **episodes** — Tracks each anime episode (status: pending/downloading/downloaded/sending/sent/failed)
+- **anime_sites** — Configured scraping sites (enabled/disabled, scraper type)
+- **pipeline_logs** — Audit log of pipeline activity
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+## API Routes
 
-## Root Scripts
+- `GET /api/episodes` — List episodes (filter by status, animeName)
+- `GET /api/episodes/:id` — Get single episode
+- `DELETE /api/episodes/:id` — Delete episode record
+- `POST /api/episodes/:id/retry` — Reset failed episode to pending
+- `GET /api/pipeline/status` — Check if pipeline is running
+- `POST /api/pipeline/run` — Trigger full pipeline run
+- `POST /api/pipeline/download` — Queue manual download
+- `GET /api/pipeline/stats` — Dashboard statistics
+- `GET /api/sites` — List configured sites
+- `POST /api/sites` — Add new site
+- `PATCH /api/sites/:id` — Update site
+- `DELETE /api/sites/:id` — Remove site
+- `GET /api/logs` — Pipeline logs (filter by level)
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+## Python Pipeline Usage
 
-## Packages
+```bash
+cd pipeline
+pip install -r requirements.txt
+cp .env.example .env  # Fill in your credentials
 
-### `artifacts/api-server` (`@workspace/api-server`)
+# Full crawl pipeline
+python main.py run
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+# Single episode
+python main.py single --anime "Attack on Titan" --season 4 --episode 1 --url "https://..."
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+# Scheduled mode
+python main.py schedule --interval 3600
+```
 
-### `lib/db` (`@workspace/db`)
+## Environment Variables Required (for Python pipeline)
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+- `DATABASE_URL` — PostgreSQL connection string
+- `TELEGRAM_BOT_TOKEN` — From @BotFather
+- `TELEGRAM_CHAT_ID` — Target chat/channel ID
+- `GCS_BUCKET_NAME` — Google Cloud Storage bucket (optional)
+- `GOOGLE_APPLICATION_CREDENTIALS` — GCS service account JSON path (optional)
+- `FFMPEG_PATH` — Path to ffmpeg binary (default: `ffmpeg`)
