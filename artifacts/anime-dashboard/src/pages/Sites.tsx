@@ -14,9 +14,9 @@ import { Plus, Trash2, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const siteSchema = z.object({
-  name: z.string().min(1, "Required"),
-  baseUrl: z.string().url("Must be valid URL"),
-  scraperType: z.string().min(1, "Required"),
+  name: z.string().min(1, "Champ requis"),
+  baseUrl: z.string().url("URL invalide"),
+  scraperType: z.string().min(1, "Champ requis"),
   enabled: z.boolean().default(true),
   requiresJs: z.boolean().default(false),
 });
@@ -36,7 +36,7 @@ export default function Sites() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListSitesQueryKey() });
-        toast({ title: "Target sector established" });
+        toast({ title: "Site ajouté avec succès" });
         setOpen(false);
         reset();
       }
@@ -53,63 +53,63 @@ export default function Sites() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListSitesQueryKey() });
-        toast({ title: "Sector eradicated" });
+        toast({ title: "Site supprimé" });
       }
     }
   });
 
   const onSubmit = (data: any) => createMut.mutate({ data });
 
-  if (isLoading) return <div className="animate-pulse">Loading sectors...</div>;
+  if (isLoading) return <div className="animate-pulse text-muted-foreground">Chargement des sites...</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-3xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Target Sectors</h2>
-          <p className="text-muted-foreground mt-1 tracking-wide">Configured anime sources for automated extraction.</p>
+          <h2 className="text-3xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Sites sources</h2>
+          <p className="text-muted-foreground mt-1 tracking-wide">Sites d'anime configurés pour l'extraction automatique.</p>
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary text-primary-foreground font-bold hover:shadow-[0_0_15px_var(--color-primary)] transition-all">
-              <Plus className="w-4 h-4 mr-2" /> Add Sector
+              <Plus className="w-4 h-4 mr-2" /> Ajouter un site
             </Button>
           </DialogTrigger>
           <DialogContent className="bg-card/95 backdrop-blur-xl border-border/50 sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle className="font-display text-xl text-primary">Establish New Sector</DialogTitle>
+              <DialogTitle className="font-display text-xl text-primary">Nouveau site source</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Sector Name</label>
-                <Input {...register("name")} className="bg-background/50 border-border/50 focus:border-primary" />
+                <label className="text-sm font-medium text-muted-foreground">Nom du site</label>
+                <Input {...register("name")} placeholder="AnimeKai" className="bg-background/50 border-border/50 focus:border-primary" />
                 {errors.name && <p className="text-xs text-destructive">{errors.name.message as string}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Base URL</label>
-                <Input {...register("baseUrl")} className="bg-background/50 border-border/50 focus:border-primary" />
+                <label className="text-sm font-medium text-muted-foreground">URL de base</label>
+                <Input {...register("baseUrl")} placeholder="https://animekai.to" className="bg-background/50 border-border/50 focus:border-primary" />
                 {errors.baseUrl && <p className="text-xs text-destructive">{errors.baseUrl.message as string}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Scraper Type</label>
-                <Input {...register("scraperType")} placeholder="cheerio | puppeteer" className="bg-background/50 border-border/50 focus:border-primary" />
+                <label className="text-sm font-medium text-muted-foreground">Type de scraper</label>
+                <Input {...register("scraperType")} placeholder="generic | playwright" className="bg-background/50 border-border/50 focus:border-primary" />
                 {errors.scraperType && <p className="text-xs text-destructive">{errors.scraperType.message as string}</p>}
               </div>
               <div className="flex gap-6 pt-2">
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id="enabled" {...register("enabled")} className="rounded border-border/50 bg-black/50 text-primary focus:ring-primary/20" />
-                  <label htmlFor="enabled" className="text-sm text-foreground">Enabled</label>
+                  <label htmlFor="enabled" className="text-sm text-foreground">Activé</label>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id="requiresJs" {...register("requiresJs")} className="rounded border-border/50 bg-black/50 text-primary focus:ring-primary/20" />
-                  <label htmlFor="requiresJs" className="text-sm text-foreground">Requires JS rendering</label>
+                  <label htmlFor="requiresJs" className="text-sm text-foreground">Requiert JavaScript</label>
                 </div>
               </div>
               <DialogFooter className="pt-4">
-                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Annuler</Button>
                 <Button type="submit" disabled={createMut.isPending} className="bg-primary text-primary-foreground hover:shadow-[0_0_15px_var(--color-primary)]">
-                  {createMut.isPending ? "Establishing..." : "Save Sector"}
+                  {createMut.isPending ? "Ajout en cours..." : "Enregistrer"}
                 </Button>
               </DialogFooter>
             </form>
@@ -141,7 +141,12 @@ export default function Sites() {
                 </Badge>
                 {site.requiresJs && (
                   <Badge variant="outline" className="border-yellow-500/30 text-yellow-400 bg-yellow-500/10 uppercase font-mono text-[10px] tracking-wider">
-                    JS REQ
+                    JS requis
+                  </Badge>
+                )}
+                {!site.enabled && (
+                  <Badge variant="outline" className="border-gray-500/30 text-gray-400 bg-gray-500/10 uppercase font-mono text-[10px] tracking-wider">
+                    Désactivé
                   </Badge>
                 )}
               </div>
@@ -152,7 +157,7 @@ export default function Sites() {
                   onClick={() => deleteMut.mutate({ id: site.id })}
                   className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 >
-                  <Trash2 className="w-4 h-4 mr-2" /> Eradicate
+                  <Trash2 className="w-4 h-4 mr-2" /> Supprimer
                 </Button>
               </div>
             </CardContent>
@@ -160,7 +165,7 @@ export default function Sites() {
         ))}
         {!sites?.length && (
           <div className="col-span-full p-12 text-center text-muted-foreground border border-dashed border-border/50 rounded-2xl bg-card/20 backdrop-blur-md">
-            No active sectors. Establish a new target sector to begin extraction.
+            Aucun site configuré. Ajoutez un site source pour commencer l'extraction.
           </div>
         )}
       </div>

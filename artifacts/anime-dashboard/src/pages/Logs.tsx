@@ -3,6 +3,7 @@ import { useListLogs } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import { Terminal } from "lucide-react";
 
 const levelColors: Record<string, string> = {
@@ -10,6 +11,14 @@ const levelColors: Record<string, string> = {
   warning: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
   error: "bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]",
   success: "bg-green-500/10 text-green-400 border-green-500/20",
+};
+
+const levelLabels: Record<string, string> = {
+  all: "Tous",
+  info: "Info",
+  warning: "Avertissement",
+  error: "Erreur",
+  success: "Succès",
 };
 
 export default function Logs() {
@@ -26,11 +35,11 @@ export default function Logs() {
   return (
     <div className="space-y-6 h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h2 className="text-3xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">System Logs</h2>
-        <p className="text-muted-foreground mt-1 tracking-wide">Real-time matrix terminal outputs.</p>
+        <h2 className="text-3xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Journaux système</h2>
+        <p className="text-muted-foreground mt-1 tracking-wide">Sorties en temps réel de la pipeline d'automatisation.</p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {filters.map(s => (
            <Button 
              key={s} 
@@ -39,7 +48,7 @@ export default function Logs() {
              onClick={() => setLevelFilter(s)}
              className={`rounded-full px-5 tracking-wider font-mono text-xs uppercase ${levelFilter === s ? 'bg-primary text-primary-foreground shadow-[0_0_10px_var(--color-primary)]' : 'border-border/50 text-muted-foreground hover:text-white'}`}
            >
-             {s}
+             {levelLabels[s] ?? s}
            </Button>
         ))}
       </div>
@@ -47,20 +56,22 @@ export default function Logs() {
       <div className="flex-1 min-h-[500px] bg-[#0a0d14]/90 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl p-6 flex flex-col">
         <div className="flex items-center gap-2 mb-4 pb-4 border-b border-white/5">
           <Terminal className="w-5 h-5 text-primary" />
-          <span className="font-mono text-sm text-muted-foreground tracking-widest uppercase">Nexus Terminal Interface /dev/tty1</span>
+          <span className="font-mono text-sm text-muted-foreground tracking-widest uppercase">Terminal Pipeline /dev/tty1</span>
         </div>
         
         <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar space-y-2 font-mono text-sm">
           {isLoading ? (
-            <div className="text-muted-foreground animate-pulse">Establishing secure connection...</div>
+            <div className="text-muted-foreground animate-pulse">Connexion en cours...</div>
           ) : !logs?.length ? (
-            <div className="text-muted-foreground">Terminal buffer empty.</div>
+            <div className="text-muted-foreground">Aucun journal disponible.</div>
           ) : (
             logs.map(log => (
               <div key={log.id} className="flex gap-4 p-2 rounded-lg hover:bg-white/5 transition-colors items-start">
-                 <span className="text-gray-500 w-32 shrink-0">{format(new Date(log.createdAt), 'MMM d, HH:mm:ss')}</span>
-                 <Badge variant="outline" className={`w-20 justify-center uppercase text-[10px] tracking-widest shrink-0 ${levelColors[log.level]}`}>
-                   {log.level}
+                 <span className="text-gray-500 w-36 shrink-0">
+                   {format(new Date(log.createdAt), 'd MMM, HH:mm:ss', { locale: fr })}
+                 </span>
+                 <Badge variant="outline" className={`w-24 justify-center uppercase text-[10px] tracking-widest shrink-0 ${levelColors[log.level]}`}>
+                   {levelLabels[log.level] ?? log.level}
                  </Badge>
                  <span className={`flex-1 break-words ${log.level === 'error' ? 'text-red-200' : 'text-gray-300'}`}>
                    {log.message}
@@ -72,7 +83,7 @@ export default function Logs() {
                  </span>
                  {log.episodeId && (
                    <span className="text-primary/60 shrink-0 border border-primary/20 px-2 py-0.5 rounded text-xs bg-primary/5">
-                     Ep #{log.episodeId}
+                     Ép. #{log.episodeId}
                    </span>
                  )}
               </div>

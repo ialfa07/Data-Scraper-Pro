@@ -12,31 +12,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   
   const runMutation = useRunPipeline({
     mutation: {
-      onSuccess: () => toast({ title: "Pipeline sequence initiated" }),
-      onError: () => toast({ title: "Failed to start pipeline", variant: "destructive" })
+      onSuccess: () => toast({ title: "Pipeline démarré avec succès" }),
+      onError: () => toast({ title: "Échec du démarrage de la pipeline", variant: "destructive" })
     }
   });
 
   const links = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/episodes", label: "Episodes", icon: Film },
-    { href: "/sites", label: "Targets", icon: Server },
-    { href: "/logs", label: "System Logs", icon: ScrollText },
+    { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
+    { href: "/episodes", label: "Épisodes", icon: Film },
+    { href: "/sites", label: "Sites sources", icon: Server },
+    { href: "/logs", label: "Journaux", icon: ScrollText },
   ];
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-hidden font-sans flex">
-      {/* Background Image & Overlay */}
+      {/* Fond décoratif */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img 
           src={`${import.meta.env.BASE_URL}images/cyber-bg.png`} 
-          alt="Background" 
+          alt="Fond" 
           className="w-full h-full object-cover opacity-15 mix-blend-screen" 
         />
         <div className="absolute inset-0 bg-gradient-to-b from-background/40 to-background" />
       </div>
 
-      {/* Sidebar */}
+      {/* Barre latérale */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 border-r border-border bg-card/40 backdrop-blur-xl z-20 flex flex-col">
         <div className="h-20 flex items-center px-6 border-b border-border/50">
           <h1 className="font-display font-bold text-3xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary flex items-center gap-3 drop-shadow-[0_0_8px_var(--color-primary)]">
@@ -57,7 +57,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
       </aside>
 
-      {/* Main Content Area */}
+      {/* Contenu principal */}
       <main className="pl-64 relative z-10 flex flex-col flex-1 min-h-screen w-full">
         <header className="h-20 border-b border-border/50 bg-card/20 backdrop-blur-lg flex items-center justify-between px-8 sticky top-0 z-30">
           <div className="flex items-center gap-4">
@@ -66,7 +66,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <span className={`relative inline-flex rounded-full h-3 w-3 ${status?.running ? 'bg-primary shadow-[0_0_12px_var(--color-primary)]' : 'bg-muted-foreground'}`}></span>
             </div>
             <span className="font-display tracking-widest text-sm font-semibold text-muted-foreground">
-              {status?.running ? 'PIPELINE ACTIVE' : 'PIPELINE STANDBY'}
+              {status?.running ? 'PIPELINE EN COURS' : 'PIPELINE EN VEILLE'}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -77,7 +77,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="bg-gradient-to-r from-primary to-secondary text-primary-foreground font-bold hover:shadow-[0_0_20px_var(--color-primary)] transition-all duration-300 border-none px-6"
             >
               <Play className="w-4 h-4 mr-2 fill-current" />
-              {runMutation.isPending ? "INITIATING..." : "RUN PIPELINE"}
+              {runMutation.isPending ? "DÉMARRAGE..." : "LANCER"}
             </Button>
           </div>
         </header>

@@ -7,6 +7,17 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, RefreshCw, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+
+const filterLabels: Record<string, string> = {
+  all: "Tous",
+  pending: "En attente",
+  downloading: "Téléchargement",
+  downloaded: "Téléchargé",
+  sending: "Envoi",
+  sent: "Envoyé",
+  failed: "Erreur",
+};
 
 export default function Episodes() {
   const [statusFilter, setStatusFilter] = useState<any>('all');
@@ -24,7 +35,7 @@ export default function Episodes() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListEpisodesQueryKey() });
-        toast({ title: "Target eradicated" });
+        toast({ title: "Épisode supprimé" });
       }
     }
   });
@@ -33,7 +44,7 @@ export default function Episodes() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListEpisodesQueryKey() });
-        toast({ title: "Target queued for retry sequence" });
+        toast({ title: "Épisode remis en file d'attente" });
       }
     }
   });
@@ -43,8 +54,8 @@ export default function Episodes() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h2 className="text-3xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Tracked Episodes</h2>
-        <p className="text-muted-foreground mt-1 tracking-wide">Manage individual pipeline targets.</p>
+        <h2 className="text-3xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Épisodes suivis</h2>
+        <p className="text-muted-foreground mt-1 tracking-wide">Gérez les épisodes de la pipeline de distribution.</p>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-6">
@@ -56,7 +67,7 @@ export default function Episodes() {
              onClick={() => setStatusFilter(s)}
              className={`rounded-full px-5 tracking-wider font-mono text-xs uppercase ${statusFilter === s ? 'bg-primary text-primary-foreground shadow-[0_0_10px_var(--color-primary)]' : 'border-border/50 text-muted-foreground hover:text-white'}`}
            >
-             {s}
+             {filterLabels[s] ?? s}
            </Button>
         ))}
       </div>
@@ -66,10 +77,10 @@ export default function Episodes() {
           <TableHeader className="bg-black/40">
             <TableRow className="border-border/30 hover:bg-transparent">
               <TableHead className="py-4 font-display text-primary tracking-widest">Anime</TableHead>
-              <TableHead className="font-display text-primary tracking-widest">Ep</TableHead>
-              <TableHead className="font-display text-primary tracking-widest">Status</TableHead>
+              <TableHead className="font-display text-primary tracking-widest">Ép.</TableHead>
+              <TableHead className="font-display text-primary tracking-widest">Statut</TableHead>
               <TableHead className="font-display text-primary tracking-widest">Source</TableHead>
-              <TableHead className="font-display text-primary tracking-widest">Added</TableHead>
+              <TableHead className="font-display text-primary tracking-widest">Ajouté</TableHead>
               <TableHead className="text-right font-display text-primary tracking-widest">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -77,13 +88,13 @@ export default function Episodes() {
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-32 text-center text-muted-foreground animate-pulse">
-                  Scanning matrix...
+                  Chargement des données...
                 </TableCell>
               </TableRow>
             ) : !data?.episodes?.length ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                  No targets found for this sector.
+                  Aucun épisode trouvé pour ce filtre.
                 </TableCell>
               </TableRow>
             ) : (
@@ -94,15 +105,18 @@ export default function Episodes() {
                   <TableCell><StatusBadge status={ep.status} /></TableCell>
                   <TableCell>
                     <a href={ep.sourceUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
-                      <ExternalLink className="w-4 h-4" /> Link
+                      <ExternalLink className="w-4 h-4" /> Lien
                     </a>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm font-mono">{format(new Date(ep.createdAt), "MMM d, HH:mm")}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm font-mono">
+                    {format(new Date(ep.createdAt), "d MMM, HH:mm", { locale: fr })}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                        <Button 
                          variant="ghost" 
                          size="icon" 
+                         title="Réessayer"
                          onClick={() => retryMut.mutate({ id: ep.id })} 
                          disabled={retryMut.isPending || ep.status === 'sent'}
                          className="hover:bg-cyan-500/20 hover:text-cyan-400"
@@ -111,7 +125,8 @@ export default function Episodes() {
                        </Button>
                        <Button 
                          variant="ghost" 
-                         size="icon" 
+                         size="icon"
+                         title="Supprimer"
                          onClick={() => deleteMut.mutate({ id: ep.id })} 
                          disabled={deleteMut.isPending}
                          className="hover:bg-red-500/20 hover:text-red-400"

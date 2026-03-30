@@ -10,10 +10,19 @@ const variants: Record<EpisodeStatus, string> = {
   failed: "bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]",
 };
 
+const labels: Record<EpisodeStatus, string> = {
+  pending: "En attente",
+  downloading: "Télécharg.",
+  downloaded: "Téléchargé",
+  sending: "Envoi...",
+  sent: "Envoyé",
+  failed: "Erreur",
+};
+
 export function StatusBadge({ status }: { status: EpisodeStatus }) {
   return (
     <Badge variant="outline" className={`px-3 py-1 font-mono uppercase tracking-wider text-[10px] ${variants[status] || variants.pending}`}>
-      {status}
+      {labels[status] ?? status}
     </Badge>
   );
 }
